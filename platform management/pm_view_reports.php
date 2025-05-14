@@ -9,7 +9,7 @@ class ReportEntity {
         $this->conn = $conn;
     }
     public function getMatchesByDate($date) {
-        $stmt = $this->conn->prepare("SELECT m.*, u.username as homeowner_username, p.first_name as homeowner_first_name, p.last_name as homeowner_last_name, v.username as cleaner_username, q.first_name as cleaner_first_name, q.last_name as cleaner_last_name FROM matches m JOIN users u ON m.homeowner_id = u.user_id JOIN profile p ON u.user_id = p.user_id JOIN users v ON m.cleaner_id = v.user_id JOIN profile q ON v.user_id = q.user_id WHERE DATE(m.match_date) = ? ORDER BY m.match_date DESC");
+        $stmt = $this->conn->prepare("SELECT m.*, u.username as homeowner_username, p.first_name as homeowner_first_name, p.last_name as homeowner_last_name, v.username as cleaner_username, q.first_name as cleaner_first_name, q.last_name as cleaner_last_name, cs.service_title FROM matches m JOIN users u ON m.homeowner_id = u.user_id JOIN profile p ON u.user_id = p.user_id JOIN users v ON m.cleaner_id = v.user_id JOIN profile q ON v.user_id = q.user_id JOIN cleaningservices cs ON m.service_id = cs.service_id WHERE DATE(m.match_date) = ? ORDER BY m.match_date DESC");
         $stmt->bind_param("s", $date);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -173,6 +173,7 @@ class ReportPage {
                         <tr>
                             <th>Match Date</th>
                             <th>Status</th>
+                            <th>Service Title</th>
                             <th>Homeowner</th>
                             <th>Cleaner</th>
                             <th>Rating</th>
@@ -187,6 +188,7 @@ class ReportPage {
                                 <tr>
                                     <td><?php echo htmlspecialchars($match['match_date']); ?></td>
                                     <td><?php echo htmlspecialchars($match['status']); ?></td>
+                                    <td><?php echo htmlspecialchars($match['service_title']); ?></td>
                                     <td><?php echo htmlspecialchars($match['homeowner_first_name'] . ' ' . $match['homeowner_last_name'] . ' (' . $match['homeowner_username'] . ')'); ?></td>
                                     <td><?php echo htmlspecialchars($match['cleaner_first_name'] . ' ' . $match['cleaner_last_name'] . ' (' . $match['cleaner_username'] . ')'); ?></td>
                                     <td>
