@@ -1,4 +1,5 @@
 <?php
+header('Content-Type: text/html; charset=UTF-8');
 session_start();
 require_once "../connectDatabase.php";
 
@@ -22,6 +23,7 @@ class CleaningService
                 cs.service_price,
                 cs.service_description,
                 cs.views,
+                cs.shortlisted,
                 u.username,
                 p.first_name,
                 p.last_name,
@@ -40,7 +42,7 @@ class CleaningService
                 matches m ON cs.service_id = m.service_id
             GROUP BY
                 cs.service_id, cs.service_title, cs.service_type, cs.service_price,
-                cs.service_description, cs.views, u.username, p.first_name, p.last_name
+                cs.service_description, cs.views, cs.shortlisted, u.username, p.first_name, p.last_name
             ORDER BY cs.service_title ASC
         ");
         $stmt->execute();
@@ -63,6 +65,7 @@ class CleaningService
                 cs.service_price,
                 cs.service_description,
                 cs.views,
+                cs.shortlisted,
                 u.username,
                 p.first_name,
                 p.last_name,
@@ -85,7 +88,7 @@ class CleaningService
             if ($criteria === 'cleaner') {
                 $query .= " WHERE CONCAT(p.first_name, ' ', p.last_name) LIKE ? OR u.username LIKE ?";
                 $query .= " GROUP BY cs.service_id, cs.service_title, cs.service_type, cs.service_price,
-                            cs.service_description, cs.views, u.username, p.first_name, p.last_name";
+                            cs.service_description, cs.views, cs.shortlisted, u.username, p.first_name, p.last_name";
                 $query .= " ORDER BY cs.service_title ASC";
                 $stmt = $this->conn->prepare($query);
                 $search = "%$search%";
@@ -93,7 +96,7 @@ class CleaningService
             } else {
                 $query .= " WHERE cs.$criteria LIKE ?";
                 $query .= " GROUP BY cs.service_id, cs.service_title, cs.service_type, cs.service_price,
-                            cs.service_description, cs.views, u.username, p.first_name, p.last_name";
+                            cs.service_description, cs.views, cs.shortlisted, u.username, p.first_name, p.last_name";
                 $query .= " ORDER BY cs.$criteria ASC";
                 $stmt = $this->conn->prepare($query);
                 $search = "%$search%";
@@ -101,7 +104,7 @@ class CleaningService
             }
         } else {
             $query .= " GROUP BY cs.service_id, cs.service_title, cs.service_type, cs.service_price,
-                        cs.service_description, cs.views, u.username, p.first_name, p.last_name";
+                        cs.service_description, cs.views, cs.shortlisted, u.username, p.first_name, p.last_name";
             $query .= " ORDER BY cs.service_title ASC";
             $stmt = $this->conn->prepare($query);
         }
@@ -259,6 +262,7 @@ class CleaningServicePage
         <html>
         <head>
             <title>Platform Management Dashboard</title>
+            <meta charset="UTF-8">
             <style>
                 body {
                     font-family: Arial, sans-serif;
@@ -347,9 +351,11 @@ class CleaningServicePage
                     margin: 0 5px;
                     border: 1px solid #ced4da;
                     border-radius: 4px;
+                    font-size: 16px;
                 }
 
-                .search-button {
+                .search-button,
+                .daily-reports-button {
                     background-color: #007bff;
                     color: white;
                     text-align: center;
@@ -358,10 +364,20 @@ class CleaningServicePage
                     padding: 8px 16px;
                     border: none;
                     cursor: pointer;
+                    font-size: 16px;
+                    line-height: 1.5;
+                    vertical-align: middle;
+                    display: inline-block;
+                    box-sizing: border-box;
                 }
-
                 .search-button:hover {
                     background-color: #0056b3;
+                }
+                .daily-reports-button {
+                    background-color: #28a745;
+                }
+                .daily-reports-button:hover {
+                    background-color: #218838;
                 }
 
                 .action-links {
@@ -423,6 +439,7 @@ class CleaningServicePage
                 </select>
                 <input type="text" id="search" name="search" placeholder="Enter Text Here" />
                 <button class="search-button" type="submit" name="searchButton">Search</button>
+                <a href="pm_view_reports.php" class="daily-reports-button">Daily Reports</a>
             </form>
             
             <div class="table-container">
@@ -435,7 +452,7 @@ class CleaningServicePage
                             <th>Description</th>
                             <th>Views</th>
                             <th>Cleaner</th>
-                            <th>Shortlists</th>
+                            <th>Shortlisted</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -448,7 +465,7 @@ class CleaningServicePage
                                 <td><?php echo htmlspecialchars($service['service_description']); ?></td>
                                 <td><?php echo htmlspecialchars($service['views']); ?></td>
                                 <td><?php echo htmlspecialchars($service['first_name'] . ' ' . $service['last_name'] . ' (' . $service['username'] . ')'); ?></td>
-                                <td><?php echo htmlspecialchars($service['shortlist_count']); ?></td>
+                                <td><?php echo htmlspecialchars($service['shortlisted']); ?></td>
                                 <td class="action-links">
                                     <a href="pm_view_ratings.php?service_id=<?php echo $service['service_id']; ?>">View Ratings</a>
                                 </td>
@@ -470,6 +487,7 @@ class CleaningServicePage
         <html>
         <head>
             <title>Service Shortlists - clean.sg</title>
+            <meta charset="UTF-8">
             <style>
                 /* Reuse the same styles as above */
                 body {
@@ -609,6 +627,7 @@ class CleaningServicePage
         <html>
         <head>
             <title>Service Matches - clean.sg</title>
+            <meta charset="UTF-8">
             <style>
                 /* Reuse the same styles as above */
                 body {
@@ -777,6 +796,7 @@ class CleaningServicePage
 // Main Script
 $database = new Database();
 $conn = $database->getConnection();
+$conn->set_charset("utf8mb4");
 
 $cleaningService = new CleaningService($conn);
 $controller = new CleaningServiceController($cleaningService);

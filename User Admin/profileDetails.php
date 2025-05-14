@@ -96,6 +96,7 @@ class ViewProfileBoundary {
             <html>
                 <head>
                     <title>Profile Information</title>
+                    <meta charset="UTF-8">
                 </head>
                 <body>
                     <h2>Profile Information</h2>
@@ -122,6 +123,7 @@ class ViewProfileBoundary {
         <html>
             <head>
                 <title>Profiles List</title>
+                <meta charset="UTF-8">
             </head>
             <body>
                 <h2>Profiles List</h2>

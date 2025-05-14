@@ -113,6 +113,7 @@ class ViewHistoryPage
         <!DOCTYPE html>
         <html>
         <head>
+            <meta charset="UTF-8">
             <title>My Service History</title>
             <style>
                 body {

@@ -125,6 +125,7 @@ class CleaningServicePage {
         ?>
         <html>
         <head>
+            <meta charset="UTF-8">
             <title>Cleaning Service Creation Page</title>
             <style>
                 /* General styling for the page */

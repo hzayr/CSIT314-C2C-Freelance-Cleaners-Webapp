@@ -2,10 +2,10 @@
 session_start();
 require_once "../connectDatabase.php";
 
-// Entity: CleaningService handles both database connection and operations
+// Entity Layer: Handles database operations for cleaning services
 class CleaningService
 {
-    private static $conn;
+    private $conn;
     
     public $service_id;
     public $service_title;
@@ -17,34 +17,14 @@ class CleaningService
     public $last_name;
     public $is_shortlisted;
 
-    public function __construct($data)
+    public function __construct($conn)
     {
-        $this->service_id = $data['service_id'];
-        $this->service_title = $data['service_title'];
-        $this->service_type = $data['service_type'];
-        $this->service_price = $data['service_price'];
-        $this->service_description = $data['service_description'];
-        $this->user_id = $data['user_id'];
-        $this->first_name = $data['first_name'];
-        $this->last_name = $data['last_name'];
-        $this->is_shortlisted = $data['is_shortlisted'] ?? false;
+        $this->conn = $conn;
     }
 
-    // Establish a database connection
-    public static function connect()
+    public function getAllServices()
     {
-        if (!self::$conn) {
-            $database = new Database();
-            self::$conn = $database->getConnection();
-        }
-    }
-
-    // Retrieves all services
-    public static function getAllServices()
-    {
-        self::connect();
-        $buyer_id = $_SESSION['user_id'] ?? 0;
-        $stmt = self::$conn->prepare("
+        $query = "
             SELECT 
                 cs.service_id, 
                 cs.service_title, 
@@ -61,21 +41,16 @@ class CleaningService
                 profile p ON cs.cleaner_id = p.user_id
             LEFT JOIN
                 shortlist s ON cs.service_id = s.service_id AND s.user_id = ?
-        ");
+        ";
+        $stmt = $this->conn->prepare($query);
+        $buyer_id = $_SESSION['user_id'] ?? 0;
         $stmt->bind_param("i", $buyer_id);
         $stmt->execute();
-        $result = $stmt->get_result();
-        $services = [];
-        while ($row = $result->fetch_assoc()) {
-            $services[] = new CleaningService($row);
-        }
-        return $services;
+        return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     }
 
-    // Searches services based on criteria
-    public static function searchServices($criteria, $search)
+    public function searchServices($criteria, $search)
     {
-        self::connect();
         $buyer_id = $_SESSION['user_id'] ?? 0;
         $query = "
             SELECT 
@@ -98,43 +73,45 @@ class CleaningService
 
         if ($criteria && $search) {
             $query .= " WHERE cs.$criteria LIKE ? ORDER BY cs.$criteria ASC";
-            $stmt = self::$conn->prepare($query);
+            $stmt = $this->conn->prepare($query);
             $search = "%$search%";
             $stmt->bind_param("is", $buyer_id, $search);
         } else if ($criteria) {
             $query .= " ORDER BY cs.$criteria ASC";
-            $stmt = self::$conn->prepare($query);
+            $stmt = $this->conn->prepare($query);
             $stmt->bind_param("i", $buyer_id);
         } else {
-            $stmt = self::$conn->prepare($query);
+            $stmt = $this->conn->prepare($query);
             $stmt->bind_param("i", $buyer_id);
         }
         
         $stmt->execute();
-        $result = $stmt->get_result();
-        $services = [];
-        while ($row = $result->fetch_assoc()) {
-            $services[] = new CleaningService($row);
-        }
-        return $services;
+        return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     }
 }
 
-// Controller: Simply relays calls to the CleaningService entity
+// Control Layer: Manages cleaning service operations
 class SearchCleaningServiceController
 {
-    public function getAllServices()
+    private $cleaningService;
+
+    public function __construct($cleaningService)
     {
-        return CleaningService::getAllServices();
+        $this->cleaningService = $cleaningService;
     }
 
-    public function searchCleaningService($criteria, $search)
+    public function getAllServices()
     {
-        return CleaningService::searchServices($criteria, $search);
+        return $this->cleaningService->getAllServices();
+    }
+
+    public function searchServices($criteria, $search)
+    {
+        return $this->cleaningService->searchServices($criteria, $search);
     }
 }
 
-// Boundary: Manages the display of data
+// Boundary Layer: Handles UI and form submission
 class SearchCleaningServicePage
 {
     private $controller;
@@ -149,14 +126,14 @@ class SearchCleaningServicePage
         return isset($_SESSION['user_id']) ? $_SESSION['user_id'] : null;
     }
 
-    public function SearchCleaningServiceUI()
+    public function display()
     {
         $criteria = isset($_POST['criteria']) ? $_POST['criteria'] : null;
         $search = isset($_POST['search']) ? $_POST['search'] : null;
         $searchCleaningService = isset($_POST['searchButton']);
 
         if ($searchCleaningService) {
-            $services = $this->controller->searchCleaningService($criteria, $search);
+            $services = $this->controller->searchServices($criteria, $search);
         } else {
             $services = $this->controller->getAllServices();
         }
@@ -463,21 +440,21 @@ class SearchCleaningServicePage
                 </tr>
                 <?php foreach ($services as $service): ?>
                     <tr>
-                        <td><?php echo htmlspecialchars($service->service_title); ?></td>
-                        <td><?php echo htmlspecialchars($service->service_type); ?></td>
-                        <td>$<?php echo htmlspecialchars(number_format($service->service_price, 2)); ?></td>
-                        <td><?php echo htmlspecialchars($service->service_description); ?></td>
-                        <td><?php echo htmlspecialchars($service->first_name . " " . $service->last_name); ?></td>
+                        <td><?php echo htmlspecialchars($service['service_title']); ?></td>
+                        <td><?php echo htmlspecialchars($service['service_type']); ?></td>
+                        <td>$<?php echo htmlspecialchars(number_format($service['service_price'], 2)); ?></td>
+                        <td><?php echo htmlspecialchars($service['service_description']); ?></td>
+                        <td><?php echo htmlspecialchars($service['first_name'] . " " . $service['last_name']); ?></td>
                         <td>
                             <div class="action-buttons">
                                 <form action="homeowner_service_details.php" method="post" style="display: inline;">
-                                    <input type="hidden" name="service_id" value="<?php echo $service->service_id; ?>">
+                                    <input type="hidden" name="service_id" value="<?php echo $service['service_id']; ?>">
                                     <input type="hidden" name="referrer" value="dashboard">
                                     <button class="listing-button action-button" type="submit">View Service Details</button>
                                 </form>
 
-                                <?php if (!$service->is_shortlisted): ?>
-                                    <button class="shortlist-button action-button" onclick="showShortlistPopup(<?php echo $service->service_id; ?>)">Add to Shortlist</button>
+                                <?php if (!$service['is_shortlisted']): ?>
+                                    <button class="shortlist-button action-button" onclick="showShortlistPopup(<?php echo $service['service_id']; ?>)">Add to Shortlist</button>
                                 <?php else: ?>
                                     <button class="shortlist-button action-button" disabled style="background-color: #cccccc; cursor: not-allowed;">Already Shortlisted</button>
                                 <?php endif; ?>
@@ -563,12 +540,25 @@ class SearchCleaningServicePage
         </html>
         <?php
     }
+
+    public function handleFormSubmission()
+    {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $criteria = $_POST['criteria'] ?? '';
+            $search = $_POST['search'] ?? '';
+            return $this->controller->searchServices($criteria, $search);
+        }
+        return $this->controller->getAllServices();
+    }
 }
 
-// Instantiate and display the page
-$searchCleaningServiceController = new SearchCleaningServiceController();
-$searchCleaningServicePage = new SearchCleaningServicePage($searchCleaningServiceController);
-$searchCleaningServicePage->SearchCleaningServiceUI();
+// Initialize and run the application
+$conn = new mysqli("localhost", "root", "", "csit314");
+$cleaningService = new CleaningService($conn);
+$controller = new SearchCleaningServiceController($cleaningService);
+$page = new SearchCleaningServicePage($controller);
+$services = $page->handleFormSubmission();
+$page->display();
 
 if (isset($_POST['view'])) {
     $username = urlencode($this->agent->getUsername());

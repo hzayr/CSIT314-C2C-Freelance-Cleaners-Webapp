@@ -200,6 +200,7 @@ class UpdateAgentAccountInformationPage {
         ?>
         <html>
             <head>
+                <meta charset="UTF-8">
                 <style>
                     /* General styling for the page */
                     body {

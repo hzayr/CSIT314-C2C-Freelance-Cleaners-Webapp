@@ -88,6 +88,7 @@ class ShortlistPage
         <html>
         <head>
             <title>Shortlist</title>
+            <meta charset="UTF-8">
             <style>
                 body {
                     font-family: Arial, sans-serif;

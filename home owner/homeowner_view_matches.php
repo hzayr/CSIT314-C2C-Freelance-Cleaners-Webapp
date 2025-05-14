@@ -104,6 +104,7 @@ class ViewMatchesPage
         <html>
         <head>
             <title>My Matches</title>
+            <meta charset="UTF-8">
             <style>
                 body {
                     font-family: Arial, sans-serif;
