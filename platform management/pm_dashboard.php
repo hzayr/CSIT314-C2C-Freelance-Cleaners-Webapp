@@ -358,10 +358,17 @@ class CleaningServicePage
                     padding: 8px 16px;
                     border: none;
                     cursor: pointer;
+                    font-size: 1em;
+                    display: inline-block;
                 }
-
                 .search-button:hover {
                     background-color: #0056b3;
+                }
+                .search-button.green, .search-button[style*='background-color: #28a745'] {
+                    background-color: #28a745 !important;
+                }
+                .search-button.green:hover, .search-button[style*='background-color: #28a745']:hover {
+                    background-color: #218838 !important;
                 }
 
                 .action-links {
@@ -423,6 +430,7 @@ class CleaningServicePage
                 </select>
                 <input type="text" id="search" name="search" placeholder="Enter Text Here" />
                 <button class="search-button" type="submit" name="searchButton">Search</button>
+                <a href="pm_view_reports.php" class="search-button" style="text-decoration: none; display: inline-block; background-color: #28a745;">Daily Reports</a>
             </form>
             
             <div class="table-container">

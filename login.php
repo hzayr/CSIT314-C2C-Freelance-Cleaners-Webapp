@@ -194,7 +194,7 @@ class LoginPage {
                                 } elseif ($selectedRole == 'user admin') {
                                     echo 'User Admin';
                                 } elseif ($selectedRole == 'home owner') {
-                                    echo 'Start Buying Today!';
+                                    echo 'Welcome Back';
                                 }
                             } else {
                                 echo 'Welcome Back';
