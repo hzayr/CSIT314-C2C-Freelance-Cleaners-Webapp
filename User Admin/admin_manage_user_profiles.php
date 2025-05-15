@@ -135,6 +135,13 @@ class UserProfilePage {
                     transition: background 0.3s;
                 }
                 /* Specific button colors */
+                .create-button {
+                    background-color: #ff8c00; /* orange */
+                    color: white;
+                }
+                .create-button:hover {
+                    background-color: #ffa500;
+                }
                 .view-button {
                     background-color: #238636; /* green */
                     color: white;
@@ -207,6 +214,10 @@ class UserProfilePage {
                             <td><?php echo htmlspecialchars($profile['account_count']); ?></td>
                             <td>
                                 <div class="button-group">
+                                    <form method="post" action="admin_create_user_profile.php">
+                                        <input type="hidden" name="role_id" value="<?php echo htmlspecialchars($profile['role_id']); ?>">
+                                        <button type="submit" class="button-font create-button" name="createProfile">Create</button>
+                                    </form>
                                     <form method="post" action="">
                                         <input type="hidden" name="username" value="<?php echo htmlspecialchars($profile['username']); ?>">
                                         <input type="hidden" name="role_id" value="<?php echo htmlspecialchars($profile['role_id']); ?>">

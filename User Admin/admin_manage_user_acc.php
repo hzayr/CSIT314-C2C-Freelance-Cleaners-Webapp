@@ -300,10 +300,6 @@ class SearchUserAccountPage
                 <button type="submit" name="searchButton" class="btn-view">Search</button>
             </form>
 
-            <form method="post" action="accountCreation.php" style="text-align:center;">
-                <button type="submit" name="createAccount" class="btn-create">Create New User Account</button>
-            </form>
-
             <table>
                 <thead>
                     <tr>
@@ -347,10 +343,7 @@ class SearchUserAccountPage
     public function handleUserInteractions()
     {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            if (isset($_POST['createAccount'])) {
-                header("Location: accountCreation.php");
-                exit();
-            } elseif (isset($_POST['viewAccount'])) {
+            if (isset($_POST['viewAccount'])) {
                 $username = $_POST['username'];
                 header("Location: admin_view_account.php?username=" . urlencode($username));
                 exit();
