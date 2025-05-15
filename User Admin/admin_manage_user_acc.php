@@ -38,7 +38,7 @@ class UserAccount
         return $users;
     }
 
-    public static function searchUserAccount($role, $username)
+    public static function searchUserAccount($username)
     {
         $query = "SELECT u.username, r.role_name, s.status_name
                   FROM users u
@@ -46,9 +46,6 @@ class UserAccount
                   JOIN status s ON u.status_id = s.status_id
                   WHERE 1=1";
 
-        if (!empty($role)) {
-            $query .= " AND r.role_name = '" . self::$database->getConnection()->real_escape_string($role) . "'";
-        }
         if (!empty($username)) {
             $query .= " AND u.username LIKE '%" . self::$database->getConnection()->real_escape_string($username) . "%'";
         }
@@ -112,9 +109,9 @@ class SearchUserAccountController
         return $this->users;
     }
 
-    public function searchUserAccounts($role, $username)
+    public function searchUserAccounts($username)
     {
-        $this->users = UserAccount::searchUserAccount($role, $username);
+        $this->users = UserAccount::searchUserAccount($username);
         return $this->users;
     }
 
@@ -137,12 +134,10 @@ class SearchUserAccountPage
     public function SearchUserAccountUI()
     {
         $users = $this->controller->getUsers();
-        $roles = $this->controller->getRoles();
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['searchButton'])) {
-            $role = $_POST['role'];
             $username = $_POST['search'];
-            $users = $this->controller->searchUserAccounts($role, $username);
+            $users = $this->controller->searchUserAccounts($username);
         }
         ?>
         <!DOCTYPE HTML>
@@ -289,13 +284,6 @@ class SearchUserAccountPage
             <h1>Manage User Accounts</h1>
 
             <form method="POST">
-                <label for="role" class="select-label">Filter by Role:</label>
-                <select id="role" name="role">
-                    <option value="">All roles</option>
-                    <?php foreach ($roles as $role): ?>
-                        <option value="<?php echo htmlspecialchars($role); ?>"><?php echo htmlspecialchars($role); ?></option>
-                    <?php endforeach; ?>
-                </select>
                 <input type="text" id="search" name="search" placeholder="Enter username" />
                 <button type="submit" name="searchButton" class="btn-view">Search</button>
             </form>

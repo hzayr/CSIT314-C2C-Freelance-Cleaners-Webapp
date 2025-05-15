@@ -197,7 +197,9 @@ class UserProfilePage {
         <body>
             <h1>Manage User Profiles</h1>
 
-            
+            <form method="post" action="admin_search_user_profiles.php" style="text-align: center; margin: 20px 0;">
+                <button type="submit" class="button-font" style="background-color: #58a6ff; color: white; padding: 10px 20px; font-size: 16px;">Search Users</button>
+            </form>
 
             <table id="main-table">
                 <tr>
