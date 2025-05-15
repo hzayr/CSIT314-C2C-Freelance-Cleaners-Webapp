@@ -226,14 +226,25 @@ class CreateUserProfilePage {
 
                     <div class="form-group">
                         <label for="role_id">Role:</label>
-                        <select id="role_id" name="role_id" required>
-                            <option value="">Select a role</option>
-                            <?php foreach ($roles as $role): ?>
-                                <option value="<?php echo htmlspecialchars($role['role_id']); ?>">
-                                    <?php echo htmlspecialchars($role['role_name']); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
+                        <?php if (isset($_POST['role_id'])): ?>
+                            <input type="hidden" name="role_id" value="<?php echo htmlspecialchars($_POST['role_id']); ?>">
+                            <select id="role_id" name="role_id" disabled>
+                                <?php foreach ($roles as $role): ?>
+                                    <option value="<?php echo htmlspecialchars($role['role_id']); ?>" <?php echo ($role['role_id'] == $_POST['role_id']) ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($role['role_name']); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        <?php else: ?>
+                            <select id="role_id" name="role_id" required>
+                                <option value="">Select a role</option>
+                                <?php foreach ($roles as $role): ?>
+                                    <option value="<?php echo htmlspecialchars($role['role_id']); ?>">
+                                        <?php echo htmlspecialchars($role['role_name']); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        <?php endif; ?>
                     </div>
 
                     <div class="button-group">

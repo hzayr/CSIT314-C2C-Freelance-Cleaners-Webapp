@@ -243,18 +243,7 @@ class UpdateUserProfilePage {
                             </select>
                         </div>
 
-                        <div class="form-group">
-                            <label for="role_id">Role:</label>
-                            <select id="role_id" name="role_id" required>
-                                <option value="">Select a role</option>
-                                <?php foreach ($roles as $role): ?>
-                                    <option value="<?php echo htmlspecialchars($role['role_id']); ?>" 
-                                            <?php echo $userData['role_id'] == $role['role_id'] ? 'selected' : ''; ?>>
-                                        <?php echo htmlspecialchars($role['role_name']); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
+                        <input type="hidden" name="role_id" value="<?php echo htmlspecialchars($userData['role_id']); ?>">
 
                         <div class="button-group">
                             <button type="submit" name="update" class="update-button">Update Profile</button>
@@ -325,7 +314,7 @@ class UpdateUserProfileController {
     }
 
     private function validateUserData($userData) {
-        $requiredFields = ['user_id', 'username', 'password', 'email', 'phone_num', 'role_id', 'first_name', 'last_name', 'about', 'gender'];
+        $requiredFields = ['user_id', 'username', 'password', 'email', 'phone_num', 'first_name', 'last_name', 'about', 'gender'];
         
         foreach ($requiredFields as $field) {
             if (empty($userData[$field])) {
