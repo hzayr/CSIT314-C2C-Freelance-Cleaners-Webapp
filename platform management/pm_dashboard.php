@@ -445,7 +445,7 @@ class CleaningServicePage
                 </select>
                 <input type="text" id="search" name="search" placeholder="Enter Text Here" />
                 <button class="search-button" type="submit" name="searchButton">Search</button>
-                <a href="pm_view_reports.php" class="search-button" style="text-decoration: none; display: inline-block; background-color: #28a745;">Daily Reports</a>
+                <a href="pm_view_reports.php" class="search-button" style="text-decoration: none; display: inline-block; background-color: #28a745;">View Reports</a>
             </form>
             
             <div class="table-container">
