@@ -110,10 +110,19 @@ class ProfilePage {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 $userData = $_POST;
+                // Add username from session
+                $userData['username'] = $_SESSION['username'];
+                
                 if ($this->controller->handleProfileUpdate($userData)) {
                     $_SESSION['success_message'] = "Profile updated successfully.";
-                    header("Location: cleaner_manage_profile.php");
-                    exit();
+                    // Ensure no output before redirect
+                    if (!headers_sent()) {
+                        header("Location: cleaner_manage_profile.php");
+                        exit();
+                    } else {
+                        echo '<script>window.location.href="cleaner_manage_profile.php";</script>';
+                        exit();
+                    }
                 } else {
                     $this->message = "Error updating profile.";
                 }
