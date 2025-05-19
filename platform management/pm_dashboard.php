@@ -18,7 +18,7 @@ class CleaningService
             SELECT 
                 cs.service_id,
                 cs.service_title,
-                cs.service_type,
+                sc.category as service_category,
                 cs.service_price,
                 cs.service_description,
                 cs.views,
@@ -27,20 +27,23 @@ class CleaningService
                 p.last_name,
                 COUNT(DISTINCT s.shortlist_id) as shortlist_count,
                 COUNT(DISTINCT m.match_id) as match_count,
-                AVG(m.rating) as avg_rating
+                AVG(m.rating) as avg_rating,
+                sc.status_id
             FROM 
                 cleaningservices cs
             JOIN 
                 users u ON cs.cleaner_id = u.user_id
             JOIN 
                 profile p ON u.user_id = p.user_id
+            JOIN
+                service_categories sc ON cs.service_category = sc.category_id
             LEFT JOIN
                 shortlist s ON cs.service_id = s.service_id
             LEFT JOIN
                 matches m ON cs.service_id = m.service_id
             GROUP BY
-                cs.service_id, cs.service_title, cs.service_type, cs.service_price,
-                cs.service_description, cs.views, u.username, p.first_name, p.last_name
+                cs.service_id, cs.service_title, sc.category, cs.service_price,
+                cs.service_description, cs.views, u.username, p.first_name, p.last_name, sc.status_id
             ORDER BY cs.service_title ASC
         ");
         $stmt->execute();
@@ -59,7 +62,7 @@ class CleaningService
             SELECT 
                 cs.service_id,
                 cs.service_title,
-                cs.service_type,
+                sc.category as service_category,
                 cs.service_price,
                 cs.service_description,
                 cs.views,
@@ -68,13 +71,16 @@ class CleaningService
                 p.last_name,
                 COUNT(DISTINCT s.shortlist_id) as shortlist_count,
                 COUNT(DISTINCT m.match_id) as match_count,
-                AVG(m.rating) as avg_rating
+                AVG(m.rating) as avg_rating,
+                sc.status_id
             FROM 
                 cleaningservices cs
             JOIN 
                 users u ON cs.cleaner_id = u.user_id
             JOIN 
                 profile p ON u.user_id = p.user_id
+            JOIN
+                service_categories sc ON cs.service_category = sc.category_id
             LEFT JOIN
                 shortlist s ON cs.service_id = s.service_id
             LEFT JOIN
@@ -84,24 +90,32 @@ class CleaningService
         if ($criteria && $search) {
             if ($criteria === 'cleaner') {
                 $query .= " WHERE CONCAT(p.first_name, ' ', p.last_name) LIKE ? OR u.username LIKE ?";
-                $query .= " GROUP BY cs.service_id, cs.service_title, cs.service_type, cs.service_price,
-                            cs.service_description, cs.views, u.username, p.first_name, p.last_name";
+                $query .= " GROUP BY cs.service_id, cs.service_title, sc.category, cs.service_price,
+                            cs.service_description, cs.views, u.username, p.first_name, p.last_name, sc.status_id";
                 $query .= " ORDER BY cs.service_title ASC";
                 $stmt = $this->conn->prepare($query);
                 $search = "%$search%";
                 $stmt->bind_param("ss", $search, $search);
+            } else if ($criteria === 'category') {
+                $query .= " WHERE sc.category LIKE ?";
+                $query .= " GROUP BY cs.service_id, cs.service_title, sc.category, cs.service_price,
+                            cs.service_description, cs.views, u.username, p.first_name, p.last_name, sc.status_id";
+                $query .= " ORDER BY sc.category ASC";
+                $stmt = $this->conn->prepare($query);
+                $search = "%$search%";
+                $stmt->bind_param("s", $search);
             } else {
                 $query .= " WHERE cs.$criteria LIKE ?";
-                $query .= " GROUP BY cs.service_id, cs.service_title, cs.service_type, cs.service_price,
-                            cs.service_description, cs.views, u.username, p.first_name, p.last_name";
+                $query .= " GROUP BY cs.service_id, cs.service_title, sc.category, cs.service_price,
+                            cs.service_description, cs.views, u.username, p.first_name, p.last_name, sc.status_id";
                 $query .= " ORDER BY cs.$criteria ASC";
                 $stmt = $this->conn->prepare($query);
                 $search = "%$search%";
                 $stmt->bind_param("s", $search);
             }
         } else {
-            $query .= " GROUP BY cs.service_id, cs.service_title, cs.service_type, cs.service_price,
-                        cs.service_description, cs.views, u.username, p.first_name, p.last_name";
+            $query .= " GROUP BY cs.service_id, cs.service_title, sc.category, cs.service_price,
+                        cs.service_description, cs.views, u.username, p.first_name, p.last_name, sc.status_id";
             $query .= " ORDER BY cs.service_title ASC";
             $stmt = $this->conn->prepare($query);
         }
@@ -424,7 +438,7 @@ class CleaningServicePage
                 <label for="service">Search based on:</label>
                 <select id="service" name="criteria">
                     <option value="service_title">Service Title</option>
-                    <option value="service_type">Service Type</option>
+                    <option value="category">Category</option>
                     <option value="service_price">Price</option>
                     <option value="cleaner">Cleaner</option>
                 </select>
@@ -438,7 +452,7 @@ class CleaningServicePage
                     <thead>
                         <tr>
                             <th>Service Title</th>
-                            <th>Service Type</th>
+                            <th><a href="pm_view_service_categories.php" style="color: white; text-decoration: none;">Category <span style="color: #28a745;">(Manage)</span></a></th>
                             <th>Price</th>
                             <th>Description</th>
                             <th>Views</th>
@@ -449,9 +463,9 @@ class CleaningServicePage
                     </thead>
                     <tbody>
                         <?php foreach ($services as $service): ?>
-                            <tr>
+                            <tr <?php echo ($service['status_id'] == 2) ? 'style="color: red;"' : ''; ?>>
                                 <td><?php echo htmlspecialchars($service['service_title']); ?></td>
-                                <td><?php echo htmlspecialchars($service['service_type']); ?></td>
+                                <td><?php echo htmlspecialchars($service['service_category']); ?></td>
                                 <td>$<?php echo htmlspecialchars(number_format($service['service_price'], 2)); ?></td>
                                 <td><?php echo htmlspecialchars($service['service_description']); ?></td>
                                 <td><?php echo htmlspecialchars($service['views']); ?></td>

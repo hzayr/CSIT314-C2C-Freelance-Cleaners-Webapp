@@ -8,95 +8,69 @@ if (!isset($_SESSION['username'])) {
     exit();
 }
 
-// Redirect to the update profile page if the update action is requested
-if (isset($_POST['profile_id']) && isset($_POST['username'])) {
-    $profile_id = $_POST['profile_id'];
-    $username = $_POST['username'];
-    header("Location: cleaner_update_profile.php?profile_id=" . urlencode($profile_id) . "&username=" . urlencode($username));
-    exit();
-}
+// Entity Layer
+class ProfileEntity {
+    private $db;
 
-$username = $_SESSION['username']; // Use the username from session
-
-// ENTITY LAYER: Represents and fetches user profile data from the database
-class UserAccount {
-    public $username;
-    public $first_name;
-    public $last_name;
-    public $about;
-    public $gender;
-    public $email;
-    public $user_id;
-    public $role_name;
-    public $phone_num;
-    public $profile_image;
-    public $profile_id;
-
-    public function __construct($data) {
-        $this->username = $data['username'];
-        $this->first_name = $data['first_name'];
-        $this->last_name = $data['last_name'];
-        $this->about = $data['about'];
-        $this->gender = $data['gender'];
-        $this->email = $data['email'];
-        $this->user_id = $data['user_id'];
-        $this->role_name = $data['role_name'];
-        $this->phone_num = $data['phone_num'];
-        $this->profile_image = $data['profile_image'];
-        $this->profile_id = $data['profile_id'];
+    public function __construct() {
+        $this->db = (new Database())->getConnection();
     }
 
-    // Fetches profile data directly from the database
-    public static function getProfileByUsername($username) {
-        try {
-            $servername = getenv('DB_HOST') ?: "127.0.0.1"; // using 127.0.0.1 to avoid socket issues
-            $dbUsername = getenv('DB_USER') ?: "root";
-            $password = getenv('DB_PASSWORD') ?: "";
-            $dbname = getenv('DB_NAME') ?: "csit314";
-            $port = getenv('DB_PORT') ?: 3307;
-    
-            $dsn = "mysql:host={$servername};port={$port};dbname={$dbname}";
-            $pdo = new PDO($dsn, $dbUsername, $password);
-    
-            $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    
-            $query = "SELECT u.username, p.first_name, p.last_name, p.about, p.gender, u.email, p.user_id, r.role_name, u.phone_num, p.profile_image, p.profile_id 
-                      FROM profile p 
-                      JOIN users u ON p.user_id = u.user_id 
-                      JOIN role r ON r.role_id = u.role_id 
-                      WHERE u.username = :username";
-            
-            $stmt = $pdo->prepare($query);
-            $stmt->bindParam(':username', $username);
-            $stmt->execute();
-            
-            $data = $stmt->fetch(PDO::FETCH_ASSOC);
-            return $data ? new self($data) : null;
-        } catch (PDOException $e) {
-            die("Database connection failed: " . $e->getMessage());
+    public function getProfileByUsername($username) {
+        $query = "SELECT u.username, p.first_name, p.last_name, p.about, p.gender, 
+                        u.email, p.user_id, r.role_name, u.phone_num, p.profile_image, p.profile_id 
+                 FROM profile p 
+                 JOIN users u ON p.user_id = u.user_id 
+                 JOIN role r ON r.role_id = u.role_id 
+                 WHERE u.username = ?";
+        
+        $stmt = $this->db->prepare($query);
+        $stmt->bind_param("s", $username);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $data = $result->fetch_assoc();
+        $stmt->close();
+        return $data;
+    }
+}
+
+// Controller Layer
+class ProfileController {
+    private $profileEntity;
+
+    public function __construct() {
+        $this->profileEntity = new ProfileEntity();
+    }
+
+    public function getProfile($username) {
+        return $this->profileEntity->getProfileByUsername($username);
+    }
+
+    public function handleProfileAction($profile_id, $username) {
+        if (isset($_POST['profile_id']) && isset($_POST['username'])) {
+            header("Location: cleaner_update_profile.php?profile_id=" . urlencode($profile_id) . "&username=" . urlencode($username));
+            exit();
         }
     }
-    
 }
 
-// CONTROL LAYER: Handles business logic and manages the entity layer
-class ViewAgentAccountController {
-    // Fetches the profile as a UserAccount object
-    public function getProfile($username) {
-        return UserAccount::getProfileByUsername($username);
-    }
-}
+// Boundary Layer
+class ProfilePage {
+    private $controller;
 
-// BOUNDARY LAYER: Responsible for rendering the user interface
-class ViewAgentAccountPage {
-    private $profileData;
-
-    public function __construct($profileData) {
-        $this->profileData = $profileData;
+    public function __construct($controller) {
+        $this->controller = $controller;
     }
 
-    // Renders the profile page
-    public function render() {
+    public function displayProfile($username) {
+        $profile = $this->controller->getProfile($username);
+        
+        if (!$profile) {
+            echo "Profile not found.";
+            return;
+        }
+
+        $this->controller->handleProfileAction($profile['profile_id'], $username);
         ?>
         <!DOCTYPE HTML>
         <html lang="en">
@@ -165,11 +139,11 @@ class ViewAgentAccountPage {
                     margin: 15px 0;
                 }
 
-                /* Center the button container */
                 .button-container {
                     text-align: center;
                     margin-top: 20px;
                 }
+
                 .button {
                     font-size: 18px;
                     padding: 10px 20px;
@@ -182,7 +156,6 @@ class ViewAgentAccountPage {
                     display: inline-block;
                 }
 
-                /* Update profile button (default blue) */
                 .button:not(.dashboard-button) {
                     background-color: #007bff;
                 }
@@ -191,25 +164,24 @@ class ViewAgentAccountPage {
                     background-color: #0056b3;
                 }
 
-                /* Dashboard button styling */
                 .dashboard-button {
                     background-color: #6c757d;
                 }
 
                 .dashboard-button:hover {
-                    background-color: #5a6268; /* Darken on hover */
+                    background-color: #5a6268;
                 }
             </style>
         </head>
         <body>
-            <h1 style="text-align: center">Account Information</h1>
+            <h1>Account Information</h1>
             <table id="infoTable">
-                <?php if ($this->profileData): ?>
+                <?php if ($profile): ?>
                     <tr>
                         <td><strong>Account Picture</strong></td>
                         <td colspan="2">
-                            <?php if (!empty($this->profileData->profile_image)): ?>
-                                <img src="data:image/jpeg;base64,<?php echo base64_encode($this->profileData->profile_image); ?>" class="profile-image" alt="Profile Picture">
+                            <?php if (!empty($profile['profile_image'])): ?>
+                                <img src="data:image/jpeg;base64,<?php echo base64_encode($profile['profile_image']); ?>" class="profile-image" alt="Profile Picture">
                             <?php else: ?>
                                 <img src="../default-profile.jpg" class="profile-image" alt="Default Profile Picture">
                             <?php endif; ?>
@@ -217,27 +189,27 @@ class ViewAgentAccountPage {
                     </tr>
                     <tr>
                         <td><strong>Full Name</strong></td>
-                        <td colspan="2"><?php echo htmlspecialchars($this->profileData->first_name . ' ' . $this->profileData->last_name); ?></td>
+                        <td colspan="2"><?php echo htmlspecialchars($profile['first_name'] . ' ' . $profile['last_name']); ?></td>
                     </tr>
                     <tr>
                         <td><strong>Role</strong></td>
-                        <td colspan="2"><?php echo htmlspecialchars($this->profileData->role_name); ?></td>
+                        <td colspan="2"><?php echo htmlspecialchars($profile['role_name']); ?></td>
                     </tr>
                     <tr>
                         <td><strong>Email</strong></td>
-                        <td colspan="2"><?php echo htmlspecialchars($this->profileData->email); ?></td>
+                        <td colspan="2"><?php echo htmlspecialchars($profile['email']); ?></td>
                     </tr>
                     <tr>
                         <td><strong>Phone Number</strong></td>
-                        <td colspan="2"><?php echo htmlspecialchars($this->profileData->phone_num); ?></td>
+                        <td colspan="2"><?php echo htmlspecialchars($profile['phone_num']); ?></td>
                     </tr>
                     <tr>
                         <td><strong>Gender</strong></td>
-                        <td colspan="2"><?php echo htmlspecialchars($this->profileData->gender == 'M' ? 'Male' : ($this->profileData->gender == 'F' ? 'Female' : $this->profileData->gender)); ?></td>
+                        <td colspan="2"><?php echo htmlspecialchars($profile['gender']); ?></td>
                     </tr>
                     <tr>
                         <td><strong>About</strong></td>
-                        <td colspan="2"><?php echo htmlspecialchars($this->profileData->about); ?></td>
+                        <td colspan="2"><?php echo htmlspecialchars($profile['about']); ?></td>
                     </tr>
                 <?php else: ?>
                     <tr>
@@ -247,11 +219,11 @@ class ViewAgentAccountPage {
             </table>
             <div class="button-container">
                 <form action="cleaner_dashboard.php" style="display: inline-block;">
-                    <button type="submit" class="button dashboard-button">Return to Dashboard</button>
+                    <button type="submit" class="button dashboard-button">Return to main dashboard</button>
                 </form>
                 <form action="" method="POST" style="display: inline-block;">
-                    <input type="hidden" name="profile_id" value="<?php echo htmlspecialchars($this->profileData->profile_id); ?>">
-                    <input type="hidden" name="username" value="<?php echo htmlspecialchars($this->profileData->username); ?>">
+                    <input type="hidden" name="profile_id" value="<?php echo htmlspecialchars($profile['profile_id']); ?>">
+                    <input type="hidden" name="username" value="<?php echo htmlspecialchars($profile['username']); ?>">
                     <button type="submit" name="update" class="button">Update account profile</button>
                 </form>
             </div>
@@ -261,11 +233,8 @@ class ViewAgentAccountPage {
     }
 }
 
-// MAIN LOGIC: Sets up components and renders the view
-$accountController = new ViewAgentAccountController();
-$profileData = $accountController->getProfile($username);
-
-// Render the view with retrieved profile data
-$userAccount = new ViewAgentAccountPage($profileData);
-$userAccount->render();
+// Main Script
+$controller = new ProfileController();
+$page = new ProfilePage($controller);
+$page->displayProfile($_SESSION['username']);
 ?>

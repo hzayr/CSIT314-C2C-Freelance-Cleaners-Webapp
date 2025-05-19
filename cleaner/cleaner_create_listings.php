@@ -27,6 +27,12 @@ class CleaningService {
         }
     }
     
+    public function getCategories() {
+        $stmt = $this->db->prepare("SELECT category_id, category FROM service_categories ORDER BY category");
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    
     public function createCleaningService($formData, $username) {
         // Retrieve the user_id based on the username
         $stmt = $this->db->prepare("SELECT user_id FROM users WHERE username = ?");
@@ -40,11 +46,11 @@ class CleaningService {
         }
 
         // Insert the cleaning service
-        $stmt = $this->db->prepare("INSERT INTO cleaningservices (cleaner_id, service_title, service_description, service_type, service_price) VALUES (?, ?, ?, ?, ?)");
+        $stmt = $this->db->prepare("INSERT INTO cleaningservices (cleaner_id, service_title, service_description, service_category, service_price) VALUES (?, ?, ?, ?, ?)");
         $stmt->bindParam(1, $cleaner_id);
         $stmt->bindParam(2, $formData['service_title']);
         $stmt->bindParam(3, $formData['service_description']);
-        $stmt->bindParam(4, $formData['service_type']);
+        $stmt->bindParam(4, $formData['service_category']);
         $stmt->bindParam(5, $formData['service_price']);
 
         return $stmt->execute(); //returns a boolean
@@ -57,6 +63,10 @@ class CleaningServiceController {
 
     public function __construct($entity) {
         $this->entity = $entity;
+    }
+
+    public function getCategories() {
+        return $this->entity->getCategories();
     }
 
     public function handleCleaningServiceCreation($formData, $username) {
@@ -87,7 +97,7 @@ class CleaningServicePage {
 
         try {
             // Validate required fields
-            $requiredFields = ['service_title', 'service_description', 'service_type', 'service_price'];
+            $requiredFields = ['service_title', 'service_description', 'service_category', 'service_price'];
             $missingFields = [];
             
             foreach ($requiredFields as $field) {
@@ -122,6 +132,7 @@ class CleaningServicePage {
     }
 
     public function display() {
+        $categories = $this->controller->getCategories();
         ?>
         <html>
         <head>
@@ -286,6 +297,20 @@ class CleaningServicePage {
                     font-weight: bold;
                     margin-bottom: 5px;
                 }
+
+                /* Radio button styling */
+                .radio-option {
+                    margin: 8px 0;
+                }
+
+                .radio-option input[type="radio"] {
+                    margin-right: 8px;
+                }
+
+                .radio-option label {
+                    font-weight: normal;
+                    cursor: pointer;
+                }
             </style>
         </head>
         <body>
@@ -309,26 +334,16 @@ class CleaningServicePage {
                             <td><textarea id="service_description" name="service_description" required></textarea></td>
                         </tr>
                         <tr>
-                            <td><label for="service_type">Service Type:</label></td>
+                            <td><label for="service_category">Category:</label></td>
                             <td>
-                                <div class="service-type-container">
-                                    <input type="text" id="service_type" name="service_type" required/>
-                                    <span class="help-icon">?</span>
-                                    <div class="tooltip">
-                                        <div class="tooltip-title">Example Service Types:</div>
-                                        <ul>
-                                            <li>Regular Cleaning</li>
-                                            <li>Deep Cleaning</li>
-                                            <li>Move In/Out Cleaning</li>
-                                            <li>Window Cleaning</li>
-                                            <li>Carpet Cleaning</li>
-                                        </ul>
-                                        <div class="tooltip-title">Note:</div>
-                                        <ul>
-                                            <li>You can also enter your own service type if it's not listed here.</li>
-                                        </ul>
-                                    </div>
-                                </div>
+                                <?php
+                                foreach ($categories as $category) {
+                                    echo "<div class='radio-option'>";
+                                    echo "<input type='radio' id='category_" . $category['category_id'] . "' name='service_category' value='" . $category['category_id'] . "' required>";
+                                    echo "<label for='category_" . $category['category_id'] . "'>" . htmlspecialchars($category['category']) . "</label>";
+                                    echo "</div>";
+                                }
+                                ?>
                             </td>
                         </tr>
                         <tr>

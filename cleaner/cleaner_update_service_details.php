@@ -39,6 +39,17 @@ class CleaningService {
     }
 
     public function updateService($service_id, $formData, $username) {
+        // First get the cleaner_id from the users table
+        $stmt = $this->db->prepare("SELECT user_id FROM users WHERE username = ?");
+        $stmt->execute([$username]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$user) {
+            throw new Exception("User not found.");
+        }
+        
+        $cleaner_id = $user['user_id'];
+
         // Verify ownership
         $stmt = $this->db->prepare("
             SELECT 1 FROM cleaningservices cs
@@ -53,17 +64,24 @@ class CleaningService {
         // Update the service
         $stmt = $this->db->prepare("
             UPDATE cleaningservices 
-            SET service_title = ?, service_description = ?, service_type = ?, service_price = ?
-            WHERE service_id = ?
+            SET service_title = ?, service_description = ?, service_category = ?, service_price = ?
+            WHERE service_id = ? AND cleaner_id = ?
         ");
         
         return $stmt->execute([
             $formData['service_title'],
             $formData['service_description'],
-            $formData['service_type'],
+            $formData['service_category'],
             $formData['service_price'],
-            $service_id
+            $service_id,
+            $cleaner_id
         ]);
+    }
+
+    public function getCategories() {
+        $stmt = $this->db->prepare("SELECT category_id, category FROM service_categories ORDER BY category");
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }
 
@@ -81,6 +99,10 @@ class UpdateServiceController {
 
     public function updateService($service_id, $formData, $username) {
         return $this->entity->updateService($service_id, $formData, $username);
+    }
+
+    public function getCategories() {
+        return $this->entity->getCategories();
     }
 }
 
@@ -112,7 +134,7 @@ class UpdateServicePage {
     public function handleFormSubmission($formData, $service_id) {
         try {
             // Validate required fields
-            $requiredFields = ['service_title', 'service_description', 'service_type', 'service_price'];
+            $requiredFields = ['service_title', 'service_description', 'service_category', 'service_price'];
             $missingFields = [];
             
             foreach ($requiredFields as $field) {
@@ -149,6 +171,7 @@ class UpdateServicePage {
         if (!$service) {
             $this->message = "Service not found or access denied.";
         }
+        $categories = $this->controller->getCategories();
         ?>
         <!DOCTYPE html>
         <html lang="en">
@@ -315,6 +338,20 @@ class UpdateServicePage {
                     font-weight: bold;
                     margin-bottom: 5px;
                 }
+
+                /* Radio button styling */
+                .radio-option {
+                    margin: 8px 0;
+                }
+
+                .radio-option input[type="radio"] {
+                    margin-right: 8px;
+                }
+
+                .radio-option label {
+                    font-weight: normal;
+                    cursor: pointer;
+                }
             </style>
         </head>
         <body>
@@ -339,23 +376,17 @@ class UpdateServicePage {
                                 <td><textarea id="service_description" name="service_description" required><?php echo htmlspecialchars($service['service_description']); ?></textarea></td>
                             </tr>
                             <tr>
-                                <td><label for="service_type">Service Type:</label></td>
+                                <td><label for="service_category">Category:</label></td>
                                 <td>
-                                    <div class="service-type-container">
-                                        <input type="text" id="service_type" name="service_type" value="<?php echo htmlspecialchars($service['service_type']); ?>" required>
-                                        <span class="help-icon">?</span>
-                                        <div class="tooltip">
-                                            <strong>Suggested Service Types:</strong>
-                                            <ul>
-                                                <li>Regular Cleaning</li>
-                                                <li>Deep Cleaning</li>
-                                                <li>Move In/Out Cleaning</li>
-                                                <li>Window Cleaning</li>
-                                                <li>Carpet Cleaning</li>
-                                            </ul>
-                                            <strong>Note:</strong> You can also enter your own service type.
-                                        </div>
-                                    </div>
+                                    <?php
+                                    foreach ($categories as $category) {
+                                        $checked = ($category['category_id'] == $service['service_category']) ? 'checked' : '';
+                                        echo "<div class='radio-option'>";
+                                        echo "<input type='radio' id='category_" . $category['category_id'] . "' name='service_category' value='" . $category['category_id'] . "' " . $checked . " required>";
+                                        echo "<label for='category_" . $category['category_id'] . "'>" . htmlspecialchars($category['category']) . "</label>";
+                                        echo "</div>";
+                                    }
+                                    ?>
                                 </td>
                             </tr>
                             <tr>

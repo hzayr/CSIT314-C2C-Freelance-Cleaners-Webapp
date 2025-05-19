@@ -12,7 +12,7 @@ class ShortlistEntity
     public $user_id;
     public $date_added;
     public $service_title;
-    public $service_type;
+    public $service_category;
     public $service_price;
     public $service_description;
     public $first_name;
@@ -23,20 +23,38 @@ class ShortlistEntity
         $this->conn = $conn;
     }
 
-    public function getShortlistsByUser($user_id)
+    public function getShortlistsByUser($user_id, $criteria = null, $search = null)
     {
-        $stmt = $this->conn->prepare("
+        $query = "
             SELECT s.shortlist_id, s.service_id, cs.cleaner_id AS user_id, s.shortlist_date AS date_added, 
-                   cs.service_title, cs.service_type, cs.service_price, cs.service_description,
+                   cs.service_title, sc.category as service_category, cs.service_price, cs.service_description,
                    p.first_name, p.last_name,
                    CASE WHEN m.match_id IS NOT NULL THEN 1 ELSE 0 END AS is_matched
             FROM shortlist s
             JOIN cleaningservices cs ON s.service_id = cs.service_id
             JOIN profile p ON cs.cleaner_id = p.user_id
+            JOIN service_categories sc ON cs.service_category = sc.category_id
             LEFT JOIN matches m ON s.service_id = m.service_id AND m.homeowner_id = ?
             WHERE s.user_id = ?
-        ");
-        $stmt->bind_param("ii", $user_id, $user_id);
+        ";
+
+        if ($criteria && $search) {
+            if ($criteria === 'category') {
+                $query .= " AND sc.category LIKE ?";
+            } else {
+                $query .= " AND cs.$criteria LIKE ?";
+            }
+        }
+
+        $stmt = $this->conn->prepare($query);
+        
+        if ($criteria && $search) {
+            $search = "%$search%";
+            $stmt->bind_param("iis", $user_id, $user_id, $search);
+        } else {
+            $stmt->bind_param("ii", $user_id, $user_id);
+        }
+        
         $stmt->execute();
         $result = $stmt->get_result();
 
@@ -66,7 +84,9 @@ class ShortlistController
     public function getShortlists()
     {
         $buyerID = $this->getBuyerID();
-        return $buyerID !== null ? $this->shortlist->getShortlistsByUser($buyerID) : [];
+        $criteria = isset($_POST['criteria']) ? $_POST['criteria'] : null;
+        $search = isset($_POST['search']) ? $_POST['search'] : null;
+        return $buyerID !== null ? $this->shortlist->getShortlistsByUser($buyerID, $criteria, $search) : [];
     }
 }
 
@@ -258,6 +278,17 @@ class ShortlistPage
                     border-radius: 4px;
                     cursor: pointer;
                 }
+                .search-form {
+                    text-align: center;
+                    margin: 20px 0;
+                }
+                .search-form select,
+                .search-form input[type="text"] {
+                    padding: 8px;
+                    margin: 0 5px;
+                    border: 1px solid #ced4da;
+                    border-radius: 4px;
+                }
             </style>
         </head>
         <body>
@@ -286,21 +317,21 @@ class ShortlistPage
             </header>
             <h2>Shortlisted Services</h2>
 
-            <form method="POST" action="buyer_search_shortlist.php" style="text-align: center; font-size: 18px;">
+            <form method="POST" action="" class="search-form">
                 <label for="service">Search based on:</label>
                 <select id="service" name="criteria">
                     <option value="service_title">Service Title</option>
-                    <option value="service_type">Service Type</option>
+                    <option value="category">Category</option>
                     <option value="service_price">Price</option>
                 </select>
-                <input type="text" id="search" name="search" placeholder="Enter Text Here" />
+                <input type="text" id="search" name="search" placeholder="Enter Text Here" value="<?php echo isset($_POST['search']) ? htmlspecialchars($_POST['search']) : ''; ?>" />
                 <button class="search-button" type="submit" name="searchButton">Search</button>
             </form>
 
             <table>
                 <tr>
                     <th>Service Title</th>
-                    <th>Service Type</th>
+                    <th>Service Category</th>
                     <th>Price</th>
                     <th>Description</th>
                     <th>Cleaner</th>
@@ -310,7 +341,7 @@ class ShortlistPage
                 <?php foreach ($shortlists as $shortlist): ?>
                     <tr>
                         <td><?= htmlspecialchars($shortlist['service_title']); ?></td>
-                        <td><?= htmlspecialchars($shortlist['service_type']); ?></td>
+                        <td><?= htmlspecialchars($shortlist['service_category']); ?></td>
                         <td>$<?= htmlspecialchars(number_format($shortlist['service_price'], 2)); ?></td>
                         <td><?= htmlspecialchars($shortlist['service_description']); ?></td>
                         <td><?= htmlspecialchars($shortlist['first_name'] . " " . $shortlist['last_name']); ?></td>

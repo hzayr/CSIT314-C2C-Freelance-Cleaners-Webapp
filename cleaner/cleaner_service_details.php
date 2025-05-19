@@ -445,8 +445,8 @@ class ServiceDetailsPage {
                             <div class="detail-value"><?php echo htmlspecialchars($service['service_title']); ?></div>
                         </div>
                         <div class="detail-row">
-                            <div class="detail-label">Service Type</div>
-                            <div class="detail-value"><?php echo htmlspecialchars($service['service_type']); ?></div>
+                            <div class="detail-label">Service Category</div>
+                            <div class="detail-value"><?php echo htmlspecialchars($service['service_category']); ?></div>
                         </div>
                         <div class="detail-row">
                             <div class="detail-label">Description</div>

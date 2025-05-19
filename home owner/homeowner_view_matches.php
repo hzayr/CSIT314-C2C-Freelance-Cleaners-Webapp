@@ -15,11 +15,14 @@ class MatchEntity
     {
         $stmt = $this->conn->prepare("
             SELECT m.match_id, m.service_id, m.match_date, m.status,
-                   cs.service_title, cs.service_type, cs.service_price,
-                   p.first_name, p.last_name
+                   cs.service_title, sc.category as service_category, cs.service_price,
+                   p.first_name, p.last_name, u.email, u.phone_num,
+                   m.rating, m.review
             FROM matches m
             JOIN cleaningservices cs ON m.service_id = cs.service_id
-            JOIN profile p ON m.cleaner_id = p.user_id
+            JOIN users u ON cs.cleaner_id = u.user_id
+            JOIN profile p ON cs.cleaner_id = p.user_id
+            JOIN service_categories sc ON cs.service_category = sc.category_id
             WHERE m.homeowner_id = ?
             ORDER BY m.match_date DESC
         ");
@@ -38,19 +41,22 @@ class MatchEntity
     {
         $stmt = $this->conn->prepare("
             SELECT m.match_id, m.service_id, m.match_date, m.status,
-                   cs.service_title, cs.service_type, cs.service_price,
-                   p.first_name, p.last_name
+                   cs.service_title, sc.category as service_category, cs.service_price,
+                   p.first_name, p.last_name, u.email, u.phone_num,
+                   m.rating, m.review
             FROM matches m
             JOIN cleaningservices cs ON m.service_id = cs.service_id
-            JOIN profile p ON m.cleaner_id = p.user_id
+            JOIN users u ON cs.cleaner_id = u.user_id
+            JOIN profile p ON cs.cleaner_id = p.user_id
+            JOIN service_categories sc ON cs.service_category = sc.category_id
             WHERE m.homeowner_id = ?
             AND (
                 cs.service_title LIKE ? OR
-                cs.service_type LIKE ? OR
+                sc.category LIKE ? OR
                 cs.service_price LIKE ? OR
-                p.first_name LIKE ? OR
-                p.last_name LIKE ? OR
-                m.status LIKE ?
+                CONCAT(p.first_name, ' ', p.last_name) LIKE ? OR
+                u.email LIKE ? OR
+                u.phone_num LIKE ?
             )
             ORDER BY m.match_date DESC
         ");
@@ -90,15 +96,20 @@ class ViewMatchesController
 class ViewMatchesPage
 {
     private $controller;
+    private $matches;
 
     public function __construct($controller)
     {
         $this->controller = $controller;
     }
 
+    public function setMatches($matches)
+    {
+        $this->matches = $matches;
+    }
+
     public function ViewMatchesUI()
     {
-        $matches = $this->controller->getMatches();
         ?>
         <!DOCTYPE html>
         <html>
@@ -224,7 +235,7 @@ class ViewMatchesPage
                 <label for="service">Search based on:</label>
                 <select id="service" name="criteria">
                     <option value="service_title">Service Title</option>
-                    <option value="service_type">Service Type</option>
+                    <option value="category">Category</option>
                     <option value="service_price">Price</option>
                     <option value="first_name">Cleaner First Name</option>
                     <option value="last_name">Cleaner Last Name</option>
@@ -237,16 +248,16 @@ class ViewMatchesPage
             <table>
                 <tr>
                     <th>Service Title</th>
-                    <th>Service Type</th>
+                    <th>Service Category</th>
                     <th>Price</th>
                     <th>Cleaner</th>
                     <th>Match Date</th>
                     <th>Status</th>
                 </tr>
-                <?php foreach ($matches as $match): ?>
+                <?php foreach ($this->matches as $match): ?>
                     <tr>
                         <td><?php echo htmlspecialchars($match['service_title']); ?></td>
-                        <td><?php echo htmlspecialchars($match['service_type']); ?></td>
+                        <td><?php echo htmlspecialchars($match['service_category']); ?></td>
                         <td>$<?php echo htmlspecialchars(number_format($match['service_price'], 2)); ?></td>
                         <td><?php echo htmlspecialchars($match['first_name'] . " " . $match['last_name']); ?></td>
                         <td><?php echo htmlspecialchars($match['match_date']); ?></td>
@@ -279,12 +290,13 @@ $page = new ViewMatchesPage($controller);
 // Handle search functionality
 if (isset($_POST['searchButton'])) {
     $criteria = $_POST['criteria'] ?? '';
-    $search = $_POST['search'] ?? '';
+    $search = '%' . $_POST['search'] . '%';  // Add wildcards for partial matching
     $matches = $matchEntity->searchMatches($controller->getHomeownerID(), $criteria, $search);
 } else {
     $matches = $controller->getMatches();
 }
 
+$page->setMatches($matches);
 $page->ViewMatchesUI();
 
 $database->closeConnection();

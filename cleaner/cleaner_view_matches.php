@@ -15,13 +15,14 @@ class MatchEntity
     {
         $query = "
             SELECT m.match_id, m.service_id, m.match_date, m.status,
-                   cs.service_title, cs.service_type, cs.service_price,
+                   cs.service_title, sc.category as service_category, cs.service_price,
                    p.first_name, p.last_name, u.email, u.phone_num,
                    m.rating, m.review
             FROM matches m
             JOIN cleaningservices cs ON m.service_id = cs.service_id
             JOIN profile p ON m.homeowner_id = p.user_id
             JOIN users u ON m.homeowner_id = u.user_id
+            JOIN service_categories sc ON cs.service_category = sc.category_id
             WHERE cs.cleaner_id = ?
         ";
 
@@ -205,12 +206,16 @@ class ViewMatchesPage
                     width: 90%;
                     margin: 20px auto;
                     text-align: center;
+                    display: flex;
+                    justify-content: center;
                 }
                 .search-form {
                     display: flex;
                     justify-content: center;
                     gap: 10px;
                     align-items: center;
+                    width: 100%;
+                    max-width: 800px;
                 }
                 .search-input {
                     padding: 8px;
@@ -259,7 +264,7 @@ class ViewMatchesPage
                 <form class="search-form" method="GET">
                     <select name="filter" class="filter-select">
                         <option value="cs.service_title" <?php echo $current_filter === 'cs.service_title' ? 'selected' : ''; ?>>Service Title</option>
-                        <option value="cs.service_type" <?php echo $current_filter === 'cs.service_type' ? 'selected' : ''; ?>>Service Type</option>
+                        <option value="sc.category" <?php echo $current_filter === 'sc.category' ? 'selected' : ''; ?>>Category</option>
                         <option value="m.match_date" <?php echo $current_filter === 'm.match_date' ? 'selected' : ''; ?>>Match Date</option>
                         <option value="m.status" <?php echo $current_filter === 'm.status' ? 'selected' : ''; ?>>Status</option>
                         <option value="p.first_name" <?php echo $current_filter === 'p.first_name' ? 'selected' : ''; ?>>Homeowner First Name</option>
@@ -277,7 +282,7 @@ class ViewMatchesPage
             <table>
                 <tr>
                     <th>Service Title</th>
-                    <th>Service Type</th>
+                    <th>Service Category</th>
                     <th>Price</th>
                     <th>Homeowner</th>
                     <th>Contact Info</th>
@@ -290,7 +295,7 @@ class ViewMatchesPage
                 <?php foreach ($matches as $match): ?>
                     <tr>
                         <td><?php echo htmlspecialchars($match['service_title']); ?></td>
-                        <td><?php echo htmlspecialchars($match['service_type']); ?></td>
+                        <td><?php echo htmlspecialchars($match['service_category']); ?></td>
                         <td>$<?php echo htmlspecialchars(number_format($match['service_price'], 2)); ?></td>
                         <td><?php echo htmlspecialchars($match['first_name'] . " " . $match['last_name']); ?></td>
                         <td>

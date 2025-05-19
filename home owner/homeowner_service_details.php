@@ -2,33 +2,22 @@
 session_start();
 require_once "../connectDatabase.php";
 
-// CleaningService Entity
-class CleaningService {
+// Entity Layer
+class CleaningServiceEntity {
     private $database;
-
-    public $serviceTitle;
-    public $serviceType;
-    public $servicePrice;
-    public $serviceDescription;
-    public $cleanerFirstName;
-    public $cleanerLastName;
-    public $cleanerEmail;
-    public $cleanerPhone;
-    public $is_shortlisted;
 
     public function __construct($database) {
         $this->database = $database;
     }
 
-    public function viewCleaningService($service_id) {
+    public function viewCleaningService($service_id, $buyer_id) {
         $conn = $this->database->getConnection();
         $this->incrementViews($service_id, $conn);
 
-        $buyer_id = $_SESSION['user_id'] ?? 0;
         $stmt = $conn->prepare("
             SELECT 
                 cs.service_title, 
-                cs.service_type, 
+                sc.category as service_category, 
                 cs.service_price, 
                 cs.service_description, 
                 p.first_name, 
@@ -44,27 +33,17 @@ class CleaningService {
                 users u ON p.user_id = u.user_id
             LEFT JOIN
                 shortlist s ON cs.service_id = s.service_id AND s.user_id = ?
+            JOIN
+                service_categories sc ON cs.service_category = sc.category_id
             WHERE 
                 cs.service_id = ?
         ");
         $stmt->bind_param("ii", $buyer_id, $service_id);
         $stmt->execute();
         $data = $stmt->get_result()->fetch_assoc();
-
-        if ($data) {
-            $this->serviceTitle = $data['service_title'];
-            $this->serviceType = $data['service_type'];
-            $this->servicePrice = $data['service_price'];
-            $this->serviceDescription = $data['service_description'];
-            $this->cleanerFirstName = $data['first_name'];
-            $this->cleanerLastName = $data['last_name'];
-            $this->cleanerEmail = $data['email'];
-            $this->cleanerPhone = $data['phone_num'];
-            $this->is_shortlisted = (bool)$data['is_shortlisted'];
-        }
         $stmt->close();
 
-        return $this;
+        return $data;
     }
 
     private function incrementViews($service_id, $conn) {
@@ -76,7 +55,7 @@ class CleaningService {
     }
 }
 
-// Controller
+// Control Layer
 class ViewCleaningServiceController {
     private $service;
 
@@ -84,12 +63,12 @@ class ViewCleaningServiceController {
         $this->service = $service;
     }
 
-    public function viewCleaningService($service_id) {
-        return $this->service->viewCleaningService($service_id);
+    public function viewCleaningService($service_id, $buyer_id) {
+        return $this->service->viewCleaningService($service_id, $buyer_id);
     }
 }
 
-// View
+// Boundary Layer
 class ViewCleaningServicePage {
     private $controller;
 
@@ -99,7 +78,8 @@ class ViewCleaningServicePage {
 
     public function render() {
         $service_id = $_POST['service_id'] ?? $_GET['service_id'] ?? null;
-        $serviceDetails = $this->controller->viewCleaningService($service_id);
+        $buyer_id = $_SESSION['user_id'] ?? 0;
+        $serviceDetails = $this->controller->viewCleaningService($service_id, $buyer_id);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -263,17 +243,17 @@ class ViewCleaningServicePage {
         <div class="details">
             <div class="service-section">
                 <div class="section-title">Service Information</div>
-                <p><strong>Title:</strong> <?php echo htmlspecialchars($serviceDetails->serviceTitle); ?></p>
-                <p><strong>Type:</strong> <?php echo htmlspecialchars($serviceDetails->serviceType); ?></p>
-                <p><strong>Price:</strong> $<?php echo number_format($serviceDetails->servicePrice, 2); ?></p>
-                <p><strong>Description:</strong> <?php echo htmlspecialchars($serviceDetails->serviceDescription); ?></p>
+                <p><strong>Title:</strong> <?php echo htmlspecialchars($serviceDetails['service_title']); ?></p>
+                <p><strong>Category:</strong> <?php echo htmlspecialchars($serviceDetails['service_category']); ?></p>
+                <p><strong>Price:</strong> $<?php echo number_format($serviceDetails['service_price'], 2); ?></p>
+                <p><strong>Description:</strong> <?php echo htmlspecialchars($serviceDetails['service_description']); ?></p>
             </div>
 
             <div class="cleaner-section">
                 <div class="section-title">Cleaner Information</div>
-                <p><strong>Name:</strong> <?php echo htmlspecialchars($serviceDetails->cleanerFirstName . " " . $serviceDetails->cleanerLastName); ?></p>
-                <p><strong>Email:</strong> <?php echo htmlspecialchars($serviceDetails->cleanerEmail); ?></p>
-                <p><strong>Phone:</strong> <?php echo htmlspecialchars($serviceDetails->cleanerPhone); ?></p>
+                <p><strong>Name:</strong> <?php echo htmlspecialchars($serviceDetails['first_name'] . " " . $serviceDetails['last_name']); ?></p>
+                <p><strong>Email:</strong> <?php echo htmlspecialchars($serviceDetails['email']); ?></p>
+                <p><strong>Phone:</strong> <?php echo htmlspecialchars($serviceDetails['phone_num']); ?></p>
             </div>
 
             <div class="button-container">
@@ -283,7 +263,7 @@ class ViewCleaningServicePage {
                 ?>
                 <a href="<?php echo $backUrl; ?>" class="common-button return-button">Return to <?php echo ucfirst($referrer); ?></a>
 
-                <?php if (!$serviceDetails->is_shortlisted): ?>
+                <?php if (!$serviceDetails['is_shortlisted']): ?>
                     <button class="common-button shortlist-button" onclick="showShortlistPopup(<?php echo $service_id; ?>)">Add to Shortlist</button>
                 <?php else: ?>
                     <button class="common-button shortlist-button" disabled>Already Shortlisted</button>
@@ -353,7 +333,7 @@ class ViewCleaningServicePage {
 
 // Bootstrap
 $database = new Database();
-$service = new CleaningService($database);
+$service = new CleaningServiceEntity($database);
 $controller = new ViewCleaningServiceController($service);
 $view = new ViewCleaningServicePage($controller);
 $view->render();

@@ -2,33 +2,22 @@
 require "../connectDatabase.php";
 session_start();
 
-// CleaningService Entity (Handles database interactions)
-class CleaningService
-{
-    public $service_id;
-    public $service_title;
-    public $service_description;
-    public $service_type;
-    public $service_price;
-    public $views;
-    public $shortlisted;
+// Entity classes
+class CleaningServiceEntity {
     private $db;
 
-    // Constructor (handles DB connection inside the entity)
-    public function __construct()
-    {
-        $this->db = (new Database())->getConnection();  // DB connection directly from the Database class
+    public function __construct() {
+        $this->db = (new Database())->getConnection();
     }
 
-    // Method to get all services for a cleaner
-    public function getServicesByUsername($username)
-    {
-        $query = "SELECT cs.service_id, cs.service_title, cs.service_type, cs.service_price, cs.views, 
-                         COUNT(s.shortlist_id) as shortlisted
-                  FROM cleaningservices cs
-                  LEFT JOIN shortlist s ON cs.service_id = s.service_id
-                  WHERE cs.cleaner_id = (SELECT user_id FROM users WHERE username = ?)
-                  GROUP BY cs.service_id, cs.service_title, cs.service_type, cs.service_price, cs.views";
+    public function getServicesByUsername($username) {
+        $query = "SELECT cs.service_id, cs.service_title, sc.category as service_category, cs.service_price, cs.views,
+                COUNT(s.shortlist_id) as shortlisted
+                FROM cleaningservices cs
+                LEFT JOIN shortlist s ON cs.service_id = s.service_id
+                JOIN service_categories sc ON cs.service_category = sc.category_id
+                WHERE cs.cleaner_id = (SELECT user_id FROM users WHERE username = ?)
+                GROUP BY cs.service_id, cs.service_title, sc.category, cs.service_price, cs.views";
         $stmt = $this->db->prepare($query);
         $stmt->bind_param("s", $username);
         $stmt->execute();
@@ -36,25 +25,21 @@ class CleaningService
 
         $services = [];
         while ($row = $result->fetch_assoc()) {
-            $service = new CleaningService();
-            $service->service_id = $row['service_id'];
-            $service->service_title = $row['service_title'];
-            $service->service_type = $row['service_type'];
-            $service->service_price = $row['service_price'];
-            $service->views = $row['views'];
-            $service->shortlisted = $row['shortlisted'];
-            $services[] = $service;
+            $services[] = $row;
         }
         $stmt->close();
         return $services;
     }
 
-    // Method to search services based on a filter
-    public function searchCleaningService($username, $role, $search)
-    {
-        $query = "SELECT service_id, service_title, service_type, service_price, views, shortlisted FROM cleaningservices
-                  WHERE cleaner_id = (SELECT user_id FROM users WHERE username = ?)
-                  AND $role LIKE ?";
+    public function searchCleaningService($username, $role, $search) {
+        $query = "SELECT cs.service_id, cs.service_title, sc.category as service_category, cs.service_price, cs.views,
+                COUNT(s.shortlist_id) as shortlisted 
+                FROM cleaningservices cs
+                LEFT JOIN shortlist s ON cs.service_id = s.service_id
+                JOIN service_categories sc ON cs.service_category = sc.category_id
+                WHERE cs.cleaner_id = (SELECT user_id FROM users WHERE username = ?)
+                AND $role LIKE ?
+                GROUP BY cs.service_id, cs.service_title, sc.category, cs.service_price, cs.views";
         $search = "%$search%";
         $stmt = $this->db->prepare($query);
         $stmt->bind_param("ss", $username, $search);
@@ -63,21 +48,13 @@ class CleaningService
         $result = $stmt->get_result();
         $services = [];
         while ($row = $result->fetch_assoc()) {
-            $service = new CleaningService();
-            $service->service_id = $row['service_id'];
-            $service->service_title = $row['service_title'];
-            $service->service_type = $row['service_type'];
-            $service->service_price = $row['service_price'];
-            $service->views = $row['views'];
-            $service->shortlisted = $row['shortlisted'];
-            $services[] = $service;
+            $services[] = $row;
         }
         $stmt->close();
         return $services;
     }
 }
 
-// Entity class for handling shortlist data
 class ShortlistEntity {
     private $db;
 
@@ -107,30 +84,25 @@ class ShortlistEntity {
     }
 }
 
-// Controller (Handles logic between Boundary and Entity)
-class SearchCleaningServiceController
-{
-    private $cleaningService;
+// Controller classes
+class CleaningServiceController {
+    private $cleaningServiceEntity;
     private $username;
 
-    public function __construct()
-    {
-        $this->cleaningService = new CleaningService();
+    public function __construct() {
+        $this->cleaningServiceEntity = new CleaningServiceEntity();
         $this->username = $_SESSION['username'];
     }
 
-    public function getServices()
-    {
-        return $this->cleaningService->getServicesByUsername($this->username);
+    public function getServices() {
+        return $this->cleaningServiceEntity->getServicesByUsername($this->username);
     }
 
-    public function searchServices($role, $search)
-    {
-        return $this->cleaningService->searchCleaningService($this->username, $role, $search);
+    public function searchServices($role, $search) {
+        return $this->cleaningServiceEntity->searchCleaningService($this->username, $role, $search);
     }
 }
 
-// Controller for handling shortlist operations
 class ShortlistController {
     private $shortlistEntity;
 
@@ -143,20 +115,17 @@ class ShortlistController {
     }
 }
 
-// Boundary class (Handles UI and form submission)
-class SearchCleaningServicePage
-{
+// Boundary class
+class CleaningServicePage {
     private $controller;
     private $shortlistController;
 
-    public function __construct($controller)
-    {
+    public function __construct($controller) {
         $this->controller = $controller;
         $this->shortlistController = new ShortlistController();
     }
 
-    public function handleFormSubmission()
-    {
+    public function handleFormSubmission() {
         if (!isset($_SESSION['username'])) {
             header("Location: login.php");
             exit();
@@ -182,8 +151,7 @@ class SearchCleaningServicePage
         return $this->controller->getServices();
     }
 
-    public function displayServices($services)
-    {
+    public function displayServices($services) {
         $username = $_SESSION['username'];
         ?>
         <!DOCTYPE HTML>
@@ -220,7 +188,6 @@ class SearchCleaningServicePage
                 /* Form Styling */
                 form {
                     margin-bottom: 15px;
-                    display: inline-block;
                 }
 
                 /* Filter Form */
@@ -448,6 +415,24 @@ class SearchCleaningServicePage
                     color: #666;
                     font-size: 0.9em;
                 }
+
+                /* Centered Top Controls */
+                .top-controls {
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    gap: 2px;
+                    margin-bottom: 15px;
+                }
+                .filter-form {
+                    margin-bottom: 0;
+                    display: flex;
+                    align-items: center;
+                    gap: 1px;
+                }
+                .create-form {
+                    margin-bottom: 0;
+                }
             </style>
         </head>
         <body>
@@ -474,28 +459,28 @@ class SearchCleaningServicePage
             <div class="content">
                 <h2><?php echo htmlspecialchars($username); ?>'s Cleaning Services</h2>
                 
-                <!-- Filter Form -->
-                <form method="POST" action="" class="filter-form">
-                    <label for="service">Filter based on:</label>
-                    <select id="service" name="service">
-                        <option value="service_title">Service Title</option>
-                        <option value="service_type">Service Type</option>
-                        <option value="service_price">Price</option>
-                    </select>
-                    <input type="text" name="search" placeholder="Enter Text Here" />
-                    <button type="submit" name="searchButton">Search</button>
-                </form>
-
-                <!-- Create Service Button -->
-                <form method="post" action="cleaner_create_listings.php">
-                    <button type="submit" name="create">Create new service</button>
-                </form>
+                <!-- Centered Search and Create Button Container -->
+                <div class="top-controls">
+                    <form method="POST" action="" class="filter-form">
+                        <label for="service">Search based on:</label>
+                        <select id="service" name="service">
+                            <option value="service_title">Service Title</option>
+                            <option value="category">Category</option>
+                            <option value="service_price">Price</option>
+                        </select>
+                        <input type="text" name="search" placeholder="Enter Text Here" />
+                        <button type="submit" name="searchButton">Search</button>
+                    </form>
+                    <form method="post" action="cleaner_create_listings.php" class="create-form">
+                        <button type="submit" name="create">Create new service</button>
+                    </form>
+                </div>
 
                 <!-- Services Table -->
                 <table>
                     <tr>
                         <th>Service Title</th>
-                        <th>Service Type</th>
+                        <th>Service Category</th>
                         <th>Price</th>
                         <th>Views</th>
                         <th>Shortlisted</th>
@@ -503,22 +488,22 @@ class SearchCleaningServicePage
                     </tr>
                     <?php foreach ($services as $service): ?>
                         <tr>
-                            <td><?php echo htmlspecialchars($service->service_title); ?></td>
-                            <td><?php echo htmlspecialchars($service->service_type); ?></td>
-                            <td>$<?php echo htmlspecialchars(number_format($service->service_price, 2)); ?></td>
-                            <td><?php echo htmlspecialchars($service->views); ?></td>
-                            <td><?php echo htmlspecialchars($service->shortlisted); ?></td>
+                            <td><?php echo htmlspecialchars($service['service_title']); ?></td>
+                            <td><?php echo htmlspecialchars($service['service_category']); ?></td>
+                            <td>$<?php echo htmlspecialchars(number_format($service['service_price'], 2)); ?></td>
+                            <td><?php echo htmlspecialchars($service['views']); ?></td>
+                            <td><?php echo htmlspecialchars($service['shortlisted']); ?></td>
                             <td class="action-buttons">
                                 <form action="cleaner_service_details.php" method="get">
-                                    <input type="hidden" name="service_id" value="<?php echo $service->service_id; ?>">
+                                    <input type="hidden" name="service_id" value="<?php echo $service['service_id']; ?>">
                                     <button type="submit">View</button>
                                 </form>
                                 <form action="cleaner_update_service_details.php" method="get">
-                                    <input type="hidden" name="service_id" value="<?php echo $service->service_id; ?>">
+                                    <input type="hidden" name="service_id" value="<?php echo $service['service_id']; ?>">
                                     <button type="submit" class="update-button">Update</button>
                                 </form>
                                 <form action="cleaner_delete_service.php" method="get" class="delete-form">
-                                    <input type="hidden" name="service_id" value="<?php echo $service->service_id; ?>">
+                                    <input type="hidden" name="service_id" value="<?php echo $service['service_id']; ?>">
                                     <button type="button" class="delete-button" onclick="showDeletePopup(this)">Delete</button>
                                 </form>
                             </td>
@@ -608,8 +593,8 @@ class SearchCleaningServicePage
 }
 
 // Main Script
-$controller = new SearchCleaningServiceController();
-$page = new SearchCleaningServicePage($controller);
+$controller = new CleaningServiceController();
+$page = new CleaningServicePage($controller);
 
 $services = $page->handleFormSubmission();
 $page->displayServices($services);

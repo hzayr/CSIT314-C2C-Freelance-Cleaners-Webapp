@@ -2,53 +2,24 @@
 session_start();
 require_once "../connectDatabase.php";
 
-// Entity: CleaningService handles both database connection and operations
-class CleaningService
-{
+// Entity Layer
+class CleaningServiceEntity {
     private static $conn;
     
-    public $service_id;
-    public $service_title;
-    public $service_type;
-    public $service_price;
-    public $service_description;
-    public $user_id;
-    public $first_name;
-    public $last_name;
-    public $is_shortlisted;
-
-    public function __construct($data)
-    {
-        $this->service_id = $data['service_id'];
-        $this->service_title = $data['service_title'];
-        $this->service_type = $data['service_type'];
-        $this->service_price = $data['service_price'];
-        $this->service_description = $data['service_description'];
-        $this->user_id = $data['user_id'];
-        $this->first_name = $data['first_name'];
-        $this->last_name = $data['last_name'];
-        $this->is_shortlisted = $data['is_shortlisted'] ?? false;
-    }
-
-    // Establish a database connection
-    public static function connect()
-    {
+    public static function connect() {
         if (!self::$conn) {
             $database = new Database();
             self::$conn = $database->getConnection();
         }
     }
 
-    // Retrieves all services
-    public static function getAllServices()
-    {
+    public static function getAllServices($buyer_id) {
         self::connect();
-        $buyer_id = $_SESSION['user_id'] ?? 0;
         $stmt = self::$conn->prepare("
             SELECT 
                 cs.service_id, 
                 cs.service_title, 
-                cs.service_type, 
+                sc.category as service_category, 
                 cs.service_price, 
                 cs.service_description, 
                 p.user_id, 
@@ -59,29 +30,30 @@ class CleaningService
                 cleaningservices cs 
             JOIN 
                 profile p ON cs.cleaner_id = p.user_id
+            JOIN
+                service_categories sc ON cs.service_category = sc.category_id
             LEFT JOIN
                 shortlist s ON cs.service_id = s.service_id AND s.user_id = ?
+            WHERE
+                sc.status_id = 1
         ");
         $stmt->bind_param("i", $buyer_id);
         $stmt->execute();
         $result = $stmt->get_result();
         $services = [];
         while ($row = $result->fetch_assoc()) {
-            $services[] = new CleaningService($row);
+            $services[] = $row;
         }
         return $services;
     }
 
-    // Searches services based on criteria
-    public static function searchServices($criteria, $search)
-    {
+    public static function searchServices($buyer_id, $criteria, $search) {
         self::connect();
-        $buyer_id = $_SESSION['user_id'] ?? 0;
         $query = "
             SELECT 
                 cs.service_id, 
                 cs.service_title, 
-                cs.service_type, 
+                sc.category as service_category, 
                 cs.service_price, 
                 cs.service_description, 
                 p.user_id, 
@@ -92,17 +64,29 @@ class CleaningService
                 cleaningservices cs 
             JOIN 
                 profile p ON cs.cleaner_id = p.user_id
+            JOIN
+                service_categories sc ON cs.service_category = sc.category_id
             LEFT JOIN
                 shortlist s ON cs.service_id = s.service_id AND s.user_id = ?
+            WHERE
+                sc.status_id = 1
         ";
 
         if ($criteria && $search) {
-            $query .= " WHERE cs.$criteria LIKE ? ORDER BY cs.$criteria ASC";
+            if ($criteria === 'category') {
+                $query .= " AND sc.category LIKE ? ORDER BY sc.category ASC";
+            } else {
+                $query .= " AND cs.$criteria LIKE ? ORDER BY cs.$criteria ASC";
+            }
             $stmt = self::$conn->prepare($query);
             $search = "%$search%";
             $stmt->bind_param("is", $buyer_id, $search);
         } else if ($criteria) {
-            $query .= " ORDER BY cs.$criteria ASC";
+            if ($criteria === 'category') {
+                $query .= " ORDER BY sc.category ASC";
+            } else {
+                $query .= " ORDER BY cs.$criteria ASC";
+            }
             $stmt = self::$conn->prepare($query);
             $stmt->bind_param("i", $buyer_id);
         } else {
@@ -114,54 +98,53 @@ class CleaningService
         $result = $stmt->get_result();
         $services = [];
         while ($row = $result->fetch_assoc()) {
-            $services[] = new CleaningService($row);
+            $services[] = $row;
         }
         return $services;
     }
 }
 
-// Controller: Simply relays calls to the CleaningService entity
-class SearchCleaningServiceController
-{
-    public function getAllServices()
-    {
-        return CleaningService::getAllServices();
+// Control Layer
+class SearchCleaningServiceController {
+    private $entity;
+
+    public function __construct() {
+        $this->entity = new CleaningServiceEntity();
     }
 
-    public function searchCleaningService($criteria, $search)
-    {
-        return CleaningService::searchServices($criteria, $search);
+    public function getAllServices($buyer_id) {
+        return CleaningServiceEntity::getAllServices($buyer_id);
+    }
+
+    public function searchCleaningService($buyer_id, $criteria, $search) {
+        return CleaningServiceEntity::searchServices($buyer_id, $criteria, $search);
     }
 }
 
-// Boundary: Manages the display of data
-class SearchCleaningServicePage
-{
+// Boundary Layer
+class SearchCleaningServicePage {
     private $controller;
 
-    public function __construct($controller)
-    {
+    public function __construct($controller) {
         $this->controller = $controller;
     }
 
-    public function getBuyerID()
-    {
+    public function getBuyerID() {
         return isset($_SESSION['user_id']) ? $_SESSION['user_id'] : null;
     }
 
-    public function SearchCleaningServiceUI()
-    {
+    public function SearchCleaningServiceUI() {
         $criteria = isset($_POST['criteria']) ? $_POST['criteria'] : null;
         $search = isset($_POST['search']) ? $_POST['search'] : null;
         $searchCleaningService = isset($_POST['searchButton']);
+        $buyerID = $this->getBuyerID();
 
         if ($searchCleaningService) {
-            $services = $this->controller->searchCleaningService($criteria, $search);
+            $services = $this->controller->searchCleaningService($buyerID, $criteria, $search);
         } else {
-            $services = $this->controller->getAllServices();
+            $services = $this->controller->getAllServices($buyerID);
         }
         
-        $buyerID = $this->getBuyerID();
         ?>
         <!DOCTYPE html>
         <html>
@@ -445,7 +428,7 @@ class SearchCleaningServicePage
                 <label for="service">Search based on:</label>
                 <select id="service" name="criteria">
                     <option value="service_title">Service Title</option>
-                    <option value="service_type">Service Type</option>
+                    <option value="category">Category</option>
                     <option value="service_price">Price</option>
                 </select>
                 <input type="text" id="search" name="search" placeholder="Enter Text Here" />
@@ -455,7 +438,7 @@ class SearchCleaningServicePage
             <table>
                 <tr>
                     <th>Service Title</th>
-                    <th>Service Type</th>
+                    <th>Service Category</th>
                     <th>Price</th>
                     <th>Description</th>
                     <th>Cleaner</th>
@@ -463,21 +446,21 @@ class SearchCleaningServicePage
                 </tr>
                 <?php foreach ($services as $service): ?>
                     <tr>
-                        <td><?php echo htmlspecialchars($service->service_title); ?></td>
-                        <td><?php echo htmlspecialchars($service->service_type); ?></td>
-                        <td>$<?php echo htmlspecialchars(number_format($service->service_price, 2)); ?></td>
-                        <td><?php echo htmlspecialchars($service->service_description); ?></td>
-                        <td><?php echo htmlspecialchars($service->first_name . " " . $service->last_name); ?></td>
+                        <td><?php echo htmlspecialchars($service['service_title']); ?></td>
+                        <td><?php echo htmlspecialchars($service['service_category']); ?></td>
+                        <td>$<?php echo htmlspecialchars(number_format($service['service_price'], 2)); ?></td>
+                        <td><?php echo htmlspecialchars($service['service_description']); ?></td>
+                        <td><?php echo htmlspecialchars($service['first_name'] . " " . $service['last_name']); ?></td>
                         <td>
                             <div class="action-buttons">
                                 <form action="homeowner_service_details.php" method="post" style="display: inline;">
-                                    <input type="hidden" name="service_id" value="<?php echo $service->service_id; ?>">
+                                    <input type="hidden" name="service_id" value="<?php echo $service['service_id']; ?>">
                                     <input type="hidden" name="referrer" value="dashboard">
                                     <button class="listing-button action-button" type="submit">View Service Details</button>
                                 </form>
 
-                                <?php if (!$service->is_shortlisted): ?>
-                                    <button class="shortlist-button action-button" onclick="showShortlistPopup(<?php echo $service->service_id; ?>)">Add to Shortlist</button>
+                                <?php if (!$service['is_shortlisted']): ?>
+                                    <button class="shortlist-button action-button" onclick="showShortlistPopup(<?php echo $service['service_id']; ?>)">Add to Shortlist</button>
                                 <?php else: ?>
                                     <button class="shortlist-button action-button" disabled style="background-color: #cccccc; cursor: not-allowed;">Already Shortlisted</button>
                                 <?php endif; ?>

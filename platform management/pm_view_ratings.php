@@ -52,7 +52,7 @@ class MatchEntity
         $stmt = $this->conn->prepare("
             SELECT 
                 cs.service_title,
-                cs.service_type,
+                sc.category as service_category,
                 cs.service_price,
                 u.username,
                 p.first_name,
@@ -63,6 +63,8 @@ class MatchEntity
                 users u ON cs.cleaner_id = u.user_id
             JOIN 
                 profile p ON u.user_id = p.user_id
+            JOIN
+                service_categories sc ON cs.service_category = sc.category_id
             WHERE 
                 cs.service_id = ?
         ");
@@ -268,7 +270,7 @@ class MatchPage
 
             <div class="service-info">
                 <p class="title"><?php echo htmlspecialchars($service['service_title']); ?></p>
-                <p>Type: <?php echo htmlspecialchars($service['service_type']); ?></p>
+                <p>Type: <?php echo htmlspecialchars($service['service_category']); ?></p>
                 <p>Price: $<?php echo htmlspecialchars(number_format($service['service_price'], 2)); ?></p>
                 <p>Cleaner: <?php echo htmlspecialchars($service['first_name'] . ' ' . $service['last_name'] . ' (' . $service['username'] . ')'); ?></p>
             </div>
