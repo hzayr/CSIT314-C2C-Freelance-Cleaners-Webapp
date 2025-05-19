@@ -149,6 +149,7 @@ class SearchCleaningServicePage {
         <!DOCTYPE html>
         <html>
         <head>
+            <meta charset="UTF-8">
             <title>Homeowner Dashboard</title>
             <style>
                 body {

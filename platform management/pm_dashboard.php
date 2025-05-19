@@ -272,6 +272,7 @@ class CleaningServicePage
         <!DOCTYPE html>
         <html>
         <head>
+            <meta charset="UTF-8">
             <title>Platform Management Dashboard</title>
             <style>
                 body {
@@ -491,6 +492,7 @@ class CleaningServicePage
         <!DOCTYPE html>
         <html>
         <head>
+            <meta charset="UTF-8">
             <title>Service Shortlists - clean.sg</title>
             <style>
                 /* Reuse the same styles as above */
@@ -630,6 +632,7 @@ class CleaningServicePage
         <!DOCTYPE html>
         <html>
         <head>
+            <meta charset="UTF-8">
             <title>Service Matches - clean.sg</title>
             <style>
                 /* Reuse the same styles as above */
